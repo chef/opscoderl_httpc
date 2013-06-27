@@ -74,6 +74,6 @@ assert_200_req(Url, Method) ->
     assert_200_req(Url, Method, []).
 assert_200_req(Url, Method, OptionsInput) ->
     Options = [{connect_timeout, 5000}] ++ OptionsInput,
-    Result = (catch ibrowse:send_req(Url, [], Method, [], Options)),
+    Result = (catch opscoderl_ibrowse:send_req(Url, [], Method, [], Options)),
     ?assertMatch({ok, _, _, _}, Result).
 
