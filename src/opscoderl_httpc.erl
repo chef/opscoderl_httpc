@@ -1,6 +1,22 @@
 -module(opscoderl_httpc).
 
--export([hello/0]).
+-export([
+    send_req/3,
+    send_req/4,
+    send_req/5,
+    send_req/6
+  ]).
 
-hello() ->
-    howdy.
+-include_lib("ibrowse/include/ibrowse.hrl").
+
+send_req(Url, Headers, Method) ->
+  send_req(Url, Headers, Method, [], []).
+
+send_req(Url, Headers, Method, Body) ->
+    send_req(Url, Headers, Method, Body, []).
+
+send_req(Url, Headers, Method, Body, Options) ->
+    send_req(Url, Headers, Method, Body, Options, 30000).
+
+send_req(UrlString, Headers, Method, Body, Options, Timeout) ->
+    opscoderl_ibrowse:send_req(UrlString, Headers, Method, Body, Options, Timeout).

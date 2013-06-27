@@ -19,7 +19,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-opscoderl_httpc_test_() ->
+opscoderl_ibrowse_test_() ->
     {setup,
      fun() ->
             application:start(crypto),
@@ -70,6 +70,6 @@ assert_200_req(Url, Method) ->
     assert_200_req(Url, Method, []).
 assert_200_req(Url, Method, OptionsInput) ->
     Options = [{connect_timeout, 5000}] ++ OptionsInput,
-    Result = (catch opscoderl_ibrowse:send_req(Url, [], Method, [], Options)),
+    Result = (catch opscoderl_ibrowse:send_req(Url, [], Method, [], Options, 60000)),
     ?assertMatch({ok, _, _, _}, Result).
 
