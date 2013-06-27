@@ -15,7 +15,7 @@
 %% under the License.
 %%
 
--module(opscoderl_httpc_tests).
+-module(opscoderl_ibrowse_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
