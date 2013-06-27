@@ -27,7 +27,7 @@ opscoderl_httpc_test_() ->
             application:start(ssl),
             application:start(pooler),
             (catch ibrowse_test_server:start_server(8181, tcp)),
-    ibrowse:start(),
+            ibrowse:start(),
              ok
      end,
      fun(_) ->
@@ -35,11 +35,6 @@ opscoderl_httpc_test_() ->
              ok
      end,
      [
-      {"opscoderl_httpc is alive",
-       fun() ->
-               %% format is always: expected, actual
-               ?assertEqual(howdy, opscoderl_httpc:hello())
-       end},
 		    fun() -> assert_200_req("http://www.google.co.uk", get) end,
 		    fun() -> assert_200_req("http://www.google.com", get) end,
 		    fun() -> assert_200_req("http://www.google.com", options) end,
