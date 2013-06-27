@@ -1,0 +1,7 @@
+ebin/*
+*.beam
+deps/*
+rel/opscoderl_httpc
+.concrete/DEV_MODE
+deps.plt
+.eunit
