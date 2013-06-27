@@ -25,6 +25,7 @@ opscoderl_httpc_test_() ->
             application:start(crypto),
             application:start(public_key),
             application:start(ssl),
+            application:start(pooler),
             (catch ibrowse_test_server:start_server(8181, tcp)),
     ibrowse:start(),
              ok
