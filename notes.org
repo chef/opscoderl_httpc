@@ -1,0 +1,87 @@
+#+TITLE: Design Notes for opscoderl_httpc
+
+
+* Overview
+
+=opscoderl_httpc= is designed to be used by an application that needs
+to make a high volume of HTTP requests to a relatively small set of
+upstream services.
+
+As of this writing, the connection pooling built into ibrowse is not a
+good fit for this use case. Similarly, the httpc module that comes
+with OTP does not support connection pooling appropriate for the high
+request rate across a small set of services case.
+
+This application uses pooler for the HTTP connection pooling and the
+core HTTP client from ibrowse. As a consumer of =opscoderl_httpc=,
+you define connection pools for your upstream HTTP services and use a
+modified ibrowse-esque API to execute requests against a member of a
+given pool.
+
+=opscoderl_httpc= is designed to be used simultaneously by different
+application within the same Erlang VM. While there are some limits to
+the isolation it provides (e.g. you must manage the choice of unique
+pool names on your own), it is possible to have different unrelated
+applications make use of =opscoderl_httpc= and cohabit the same
+Erlang VM.
+
+* API
+** Initialization
+The initialization API is used to construct connection pools with
+the connection desired properties.
+
+An HTTP client connection pool is initialized using
+=oc_httpc:add_pool/1=. Here's an example:
+
+#+BEGIN_SRC erlang
+Config = [{root_url, Url},
+          {max_conns, MaxC},
+          {init_conns, InitC},
+          {default_timeout, Timeout},
+          {when_full, WhenFull},
+          {max_age, MaxAge},
+          {health_check_path, PingPath},
+          {health_check_interval, PingTime},
+          {ibrowse_opts, Opts}],
+ok = oc_httpc:add_pool(PoolName, Config)
+#+END_SRC
+
+See pooler docs for =max_conns=, =init_conns=, and =max_age=. The
+other config elements are described below:
+
+- =root_url= :: The root URL for the service. This is a more compact
+                way of specifying the protocol, host, and port.
+- =default_timeout= :: The default timeout for request execution
+                       against connections in the pool.
+- =when_full= :: When the value is ='start_new'=, a new HTTP
+                 connection will be established if a request is
+                 attempted when all members of the pool are in
+                 use. That is the only supported value at this
+                 time. This tuple can be omited from the config. In
+                 this case, ={error, no_connections}= is returned when
+                 making a request in the all-members-in-use case.
+- =ibrowse_opt= :: A list of options for ibrowse. To keep the API
+                   consistent, the options ={response_format,
+                   binary}= will be set if not present.
+
+** Run-Time
+The run-time API is the please-make-this-http-call-for-me part of the
+show. Since the pool is configured with a root URL, only the path
+needs to be specified when making requests. You can override the
+default timeout by specifying a value.
+
+#+BEGIN_SRC erlang
+oc_httpc:request(PoolName, Path, Headers, Method)
+oc_httpc:request(PoolName, Path, Headers, Method, Body)
+oc_httpc:request(PoolName, Path, Headers, Method, Body, Timeout)
+#+END_SRC
+
+Multiple requests on same connection can be made as:
+
+#+BEGIN_SRC erlang
+oc_httpc:multi_request(PoolName, Fun, Timeout)
+#+END_SRC
+
+Where =Fun= must be an arity one function. The return value of the
+above is the return value of =Fun=. =Fun= will be passed an arity
+four function =ReqFun(Path, Headers, Method, Body)=.
