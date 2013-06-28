@@ -15,7 +15,7 @@
 %% under the License.
 %%
 
--module(opscoderl_ibrowse_tests).
+-module(oc_httpc_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -70,6 +70,6 @@ assert_200_req(Url, Method) ->
     assert_200_req(Url, Method, []).
 assert_200_req(Url, Method, OptionsInput) ->
     Options = [{connect_timeout, 5000}] ++ OptionsInput,
-    Result = (catch opscoderl_ibrowse:send_req(Url, [], Method, [], Options, 60000)),
+    Result = (catch oc_httpc:request(Url, [], Method, [], Options, 60000)),
     ?assertMatch({ok, _, _, _}, Result).
 
