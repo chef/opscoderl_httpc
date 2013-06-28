@@ -1,4 +1,4 @@
--module(opscoderl_ibrowse).
+-module(oc_ibrowse).
 
 -export([
     send_req/6
