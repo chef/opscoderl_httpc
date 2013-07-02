@@ -18,7 +18,7 @@ request(PoolName, Endpoint, Headers, Method) ->
 request(PoolName, Endpoint, Headers, Method, Body) ->
     request(PoolName, Endpoint, Headers, Method, Body, ?DEFAULT_SINGLE_REQUEST_TIMEOUT).
 
--spec request(string(), oc_httpc_types:headerList(), oc_httpc_types:method(), oc_https_types:body(),[oc_https_types:ibrowse_option()], non_neg_integer()) -> oc_httpc_types:response().
+-spec request(oc_httpc_types:pool_name(), string(), oc_httpc_types:headerList(), oc_httpc_types:method(), oc_httpc_types:body(), non_neg_integer()) -> oc_httpc_types:response().
 request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
     Pid = pooler:take_member(PoolName),
     Result = oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, Timeout),
