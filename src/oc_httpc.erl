@@ -4,10 +4,14 @@
     request/3,
     request/4,
     request/5,
-    request/6
+    request/6,
+    add_pool/2
   ]).
 
 -include_lib("ibrowse/include/ibrowse.hrl").
+
+-define(DEFAULT_SINGLE_REQUEST_TIMEOUT, 30000).
+-define(DEFAULT_MULTI_REQUEST_TIMEOUT, 30000).
 
 request(Url, Headers, Method) ->
   request(Url, Headers, Method, [], []).
@@ -16,8 +20,9 @@ request(Url, Headers, Method, Body) ->
     request(Url, Headers, Method, Body, []).
 
 request(Url, Headers, Method, Body, Options) ->
-    request(Url, Headers, Method, Body, Options, 30000).
+    request(Url, Headers, Method, Body, Options, ?DEFAULT_SINGLE_REQUEST_TIMEOUT).
 
+-spec request(string(), oc_httpc_types:headerList(), oc_httpc_types:method(), oc_httpc_types:body(),[oc_httpc_types:ibrowse_option()], non_neg_integer()) -> oc_httpc_types:response().
 request(UrlString, Headers, Method, Body, Options, Timeout) ->
     Url = #url{host = Host, port = Port, protocol = Protocol} = ibrowse_lib:parse_url(UrlString),
     {SSLOptions, IsSSL} =
@@ -34,3 +39,7 @@ request(UrlString, Headers, Method, Body, Options, Timeout) ->
     Result = ibrowse:send_req_direct(Pid, UrlString, Headers, Method, Body, Options, Timeout),
     pooler:return_member(PoolName, Pid),
     Result.
+
+-spec add_pool(oc_httpc_types:pool_name(), oc_httpc_types:pool_config()) -> any().
+add_pool(_Name, _Config)  ->
+  ok.
