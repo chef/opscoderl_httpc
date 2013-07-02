@@ -64,10 +64,16 @@ opscoderl_ibrowse_test_() ->
 		    fun() -> assert_200_req("http://www.httpwatch.com/httpgallery/chunked/", get) end
       ]}.
 
-assert_200_req(Url, Method) ->
-    assert_200_req(Url, Method, []).
-assert_200_req(Url, Method, OptionsInput) ->
+assert_200_req(RootUrl, Method) ->
+	assert_200_req(RootUrl, [], Method, []).
+assert_200_req(RootUrl, Method, Options) ->
+	assert_200_req(RootUrl, [], Method, Options).
+assert_200_req(RootUrl, Endpoint, Method, OptionsInput) ->
     Options = [{connect_timeout, 5000}] ++ OptionsInput,
-    Result = (catch oc_httpc:request(Url, [], Method, [], Options, 60000)),
+    PoolConfig = [{root_url, RootUrl}, {init_count, 50}, {max_count, 250},
+			{ibrowse_options, Options}],
+		oc_httpc:add_pool(list_to_atom(RootUrl), PoolConfig),
+    Result = (catch oc_httpc:request(list_to_atom(RootUrl), RootUrl, [], Method, [], Options, 60000)),
+		oc_httpc:delete_pool(list_to_atom(RootUrl)),
     ?assertMatch({ok, _, _, _}, Result).
 

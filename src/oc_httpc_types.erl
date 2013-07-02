@@ -7,7 +7,8 @@
   method/0,
   body/0,
   headerList/0,
-  response/0
+  response/0,
+  ibrowse_option/0
 ]).
 
 -type ibrowse_option() :: {max_sessions, integer()}        |
