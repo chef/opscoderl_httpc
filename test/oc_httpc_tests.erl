@@ -26,12 +26,10 @@ opscoderl_ibrowse_test_() ->
             application:start(public_key),
             application:start(ssl),
             application:start(pooler),
-            (catch ibrowse_test_server:start_server(8181, tcp)),
             ibrowse:start(),
              ok
      end,
      fun(_) ->
-            catch ibrowse_test_server:stop_server(8181),
              ok
      end,
      [
