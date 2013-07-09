@@ -101,6 +101,8 @@ multi_request_test() ->
 			{ibrowse_options, Options}],
 		oc_httpc:add_pool(list_to_atom(RootUrl), PoolConfig),
     Results = (catch oc_httpc:multi_request(list_to_atom(RootUrl), CallbackFun , 60000)),
+		oc_httpc:delete_pool(list_to_atom(RootUrl)),
+    ?assertEqual(15, length(Results)),
     [?assertMatch({ok, _,_,_}, Result) || Result <- Results].
 
 
