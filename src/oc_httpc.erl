@@ -29,15 +29,24 @@ request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
 add_pool(PoolName, Config)  ->
     RootUrl =proplists:get_value(root_url, Config),
     Options = proplists:get_value(ibrowse_options, Config, []),
+    UpdatedOptions = update_response_format(Options),
     PoolConfig = [
       {name, PoolName},
       {start_mfa,
         {oc_httpc_worker,
           start_link,
-          [RootUrl, Options]
+          [RootUrl, UpdatedOptions]
         }
       } | Config],
 		{ok, _} = pooler:new_pool(PoolConfig).
 
 delete_pool(PoolName) ->
   pooler:rm_pool(PoolName).
+
+update_response_format(Options) ->
+    case proplists:is_defined(response_format, Options) of
+        true ->
+            Options;
+        false ->
+            [{response_format,binary} | Options]
+    end.
