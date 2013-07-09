@@ -1,6 +1,6 @@
 # opscoderl_httpc #
 
-Http Client library
+Http client library
 
 ## Author(s) ##
 
@@ -14,4 +14,5 @@ Copyright (c) 2013 Opscode, Inc.  All rights reserved.
 ### opscoderl_httpc
 
  The goal of this library is to provide a drop-in replacement for ibrowse
-that leverages pooler for connection pooling and ibrowse for http client requests.
+that leverages pooler for process pooling and ibrowse for http client requests.
+
