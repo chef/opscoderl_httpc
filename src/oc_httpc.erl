@@ -4,6 +4,7 @@
     request/4,
     request/5,
     request/6,
+    multi_request/3,
     add_pool/2,
     delete_pool/1
   ]).
@@ -17,6 +18,12 @@ request(PoolName, Endpoint, Headers, Method) ->
 
 request(PoolName, Endpoint, Headers, Method, Body) ->
     request(PoolName, Endpoint, Headers, Method, Body, ?DEFAULT_SINGLE_REQUEST_TIMEOUT).
+
+multi_request(PoolName, Fun, Timeout) ->
+    Pid = pooler:take_member(PoolName),
+    Result = oc_httpc_worker:multi_request(Pid, Fun, Timeout),
+    pooler:return_member(PoolName, Pid),
+    Result.
 
 -spec request(oc_httpc_types:pool_name(), string(), oc_httpc_types:headerList(), oc_httpc_types:method(), oc_httpc_types:body(), non_neg_integer()) -> oc_httpc_types:response().
 request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->

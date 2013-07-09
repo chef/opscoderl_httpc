@@ -13,7 +13,8 @@
 %% API
 -export([
          start_link/2,
-         request/6
+         request/6,
+         multi_request/3
         ]).
 
 %% gen_server callbacks
@@ -36,6 +37,9 @@ start_link(RootUrl, IbrowseOptions) ->
 request(Pid, Path, Headers, Method, Body, Timeout) ->
   gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}).
 
+multi_request(Pid, Fun, Timeout) ->
+  gen_server:call(Pid, {multi_request, Fun, Timeout}).
+
 %%%===================================================================
 %%% Gen Server Callbacks
 %%%===================================================================
@@ -49,6 +53,14 @@ handle_call({request, Path, Headers, Method, Body, Timeout},
     _From,
     State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid}) ->
     Result = ibrowse:send_req_direct(Pid, RootUrl ++ Path, Headers, Method, Body, IbrowseOptions, Timeout),
+  {reply, Result, State};
+
+handle_call({multi_request, CallbackFun, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid} ) ->
+  RequestFun = fun(Path, Headers, Method, Body) ->
+      Result = ibrowse:send_req_direct(Pid, RootUrl ++ Path, Headers, Method, Body, IbrowseOptions, Timeout),
+      Result
+  end,
+  Result = (catch(CallbackFun(RequestFun))),
   {reply, Result, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,

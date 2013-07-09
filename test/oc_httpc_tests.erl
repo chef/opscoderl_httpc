@@ -75,3 +75,32 @@ assert_200_req(RootUrl, Endpoint, Method, OptionsInput) ->
 		oc_httpc:delete_pool(list_to_atom(RootUrl)),
     ?assertMatch({ok, _, _, _}, Result).
 
+multi_request_test() ->
+    RootUrl = "http://jigsaw.w3.org/",
+		CallbackFun = fun(RequestFun) ->
+            [
+              RequestFun("HTTP/ChunkedScript", [], get, []),
+              RequestFun("HTTP/TE/foo.txt", [], get, []),
+              RequestFun("HTTP/TE/bar.txt", [], get, []),
+              RequestFun("HTTP/connection.html", [], get, []),
+              RequestFun("HTTP/cc.html", [], get, []),
+              RequestFun("HTTP/cc-private.html", [], get, []),
+              RequestFun("HTTP/cc-proxy-revalidate.html", [], get, []),
+              RequestFun("HTTP/cc-nocache.html", [], get, []),
+              RequestFun("HTTP/h-content-md5.html", [], get, []),
+              RequestFun("HTTP/h-retry-after.html", [], get, []),
+              RequestFun("HTTP/h-retry-after-date.html", [], get, []),
+              RequestFun("HTTP/neg", [], get, []),
+              RequestFun("HTTP/negbad", [], get, []),
+              RequestFun("HTTP/400/toolong/", [], get, []),
+              RequestFun("HTTP/300/", [], get, [])
+            ]
+        end,
+    Options = [{connect_timeout, 5000}],
+    PoolConfig = [{root_url, RootUrl}, {init_count, 50}, {max_count, 250},
+			{ibrowse_options, Options}],
+		oc_httpc:add_pool(list_to_atom(RootUrl), PoolConfig),
+    Results = (catch oc_httpc:multi_request(list_to_atom(RootUrl), CallbackFun , 60000)),
+    [?assertMatch({ok, _,_,_}, Result) || Result <- Results].
+
+
