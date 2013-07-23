@@ -1,20 +1,20 @@
 -module(oc_httpc).
 
 -export([
-    request/4,
-    request/5,
-    request/6,
-    multi_request/3,
-    add_pool/2,
-    delete_pool/1
-  ]).
+         request/4,
+         request/5,
+         request/6,
+         multi_request/3,
+         add_pool/2,
+         delete_pool/1
+        ]).
 
 
 -define(DEFAULT_SINGLE_REQUEST_TIMEOUT, 30000).
 -define(DEFAULT_MULTI_REQUEST_TIMEOUT, 30000).
 
 request(PoolName, Endpoint, Headers, Method) ->
-  request(PoolName, Endpoint, Headers, Method, []).
+    request(PoolName, Endpoint, Headers, Method, []).
 
 request(PoolName, Endpoint, Headers, Method, Body) ->
     request(PoolName, Endpoint, Headers, Method, Body, ?DEFAULT_SINGLE_REQUEST_TIMEOUT).
@@ -37,18 +37,13 @@ add_pool(PoolName, Config)  ->
     RootUrl =proplists:get_value(root_url, Config),
     Options = proplists:get_value(ibrowse_options, Config, []),
     UpdatedOptions = update_response_format(Options),
-    PoolConfig = [
-      {name, PoolName},
-      {start_mfa,
-        {oc_httpc_worker,
-          start_link,
-          [RootUrl, UpdatedOptions]
-        }
-      } | Config],
-		{ok, _} = pooler:new_pool(PoolConfig).
+    PoolConfig = [{name, PoolName},
+                  {start_mfa, {oc_httpc_worker, start_link, [RootUrl, UpdatedOptions]}}
+                  | Config],
+    {ok, _} = pooler:new_pool(PoolConfig).
 
 delete_pool(PoolName) ->
-  pooler:rm_pool(PoolName).
+    pooler:rm_pool(PoolName).
 
 update_response_format(Options) ->
     case proplists:is_defined(response_format, Options) of
