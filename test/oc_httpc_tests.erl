@@ -82,25 +82,24 @@ assert_200_req(RootUrl, Endpoint, Method, OptionsInput) ->
 
 multi_request_test() ->
     RootUrl = "http://jigsaw.w3.org/",
-		CallbackFun = fun(RequestFun) ->
-            [
-              RequestFun("HTTP/ChunkedScript", [], get, []),
-              RequestFun("HTTP/TE/foo.txt", [], get, []),
-              RequestFun("HTTP/TE/bar.txt", [], get, []),
-              RequestFun("HTTP/connection.html", [], get, []),
-              RequestFun("HTTP/cc.html", [], get, []),
-              RequestFun("HTTP/cc-private.html", [], get, []),
-              RequestFun("HTTP/cc-proxy-revalidate.html", [], get, []),
-              RequestFun("HTTP/cc-nocache.html", [], get, []),
-              RequestFun("HTTP/h-content-md5.html", [], get, []),
-              RequestFun("HTTP/h-retry-after.html", [], get, []),
-              RequestFun("HTTP/h-retry-after-date.html", [], get, []),
-              RequestFun("HTTP/neg", [], get, []),
-              RequestFun("HTTP/negbad", [], get, []),
-              RequestFun("HTTP/400/toolong/", [], get, []),
-              RequestFun("HTTP/300/", [], get, [])
-            ]
-        end,
+    CallbackFun = fun(RequestFun) ->
+                          Paths = ["HTTP/ChunkedScript",
+                                   "HTTP/TE/foo.txt",
+                                   "HTTP/TE/bar.txt",
+                                   "HTTP/connection.html",
+                                   "HTTP/cc.html",
+                                   "HTTP/cc-private.html",
+                                   "HTTP/cc-proxy-revalidate.html",
+                                   "HTTP/cc-nocache.html",
+                                   "HTTP/h-content-md5.html",
+                                   "HTTP/h-retry-after.html",
+                                   "HTTP/h-retry-after-date.html",
+                                   "HTTP/neg",
+                                   "HTTP/negbad",
+                                   "HTTP/400/toolong/",
+                                   "HTTP/300/"],
+                          [ RequestFun(P, [], get, []) || P <- Paths ]
+                  end,
     Options = [{connect_timeout, 5000}],
     PoolConfig = [{root_url, RootUrl}, {init_count, 50}, {max_count, 250},
 			{ibrowse_options, Options}],
