@@ -35,10 +35,10 @@ start_link(RootUrl, IbrowseOptions) ->
     gen_server:start_link(?MODULE, [RootUrl, IbrowseOptions], []).
 
 request(Pid, Path, Headers, Method, Body, Timeout) ->
-  gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}).
+    gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}).
 
 multi_request(Pid, Fun, Timeout) ->
-  gen_server:call(Pid, {multi_request, Fun, Timeout}).
+    gen_server:call(Pid, {multi_request, Fun, Timeout}).
 
 %%%===================================================================
 %%% Gen Server Callbacks
@@ -50,18 +50,18 @@ init([RootUrl, IbrowseOptions]) ->
     {ok, #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid}}.
 
 handle_call({request, Path, Headers, Method, Body, Timeout},
-    _From,
-    State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid}) ->
+            _From,
+            State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid}) ->
     Result = ibrowse:send_req_direct(Pid, RootUrl ++ Path, Headers, Method, Body, IbrowseOptions, Timeout),
-  {reply, Result, State};
+    {reply, Result, State};
 
 handle_call({multi_request, CallbackFun, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid} ) ->
-  RequestFun = fun(Path, Headers, Method, Body) ->
-      Result = ibrowse:send_req_direct(Pid, RootUrl ++ Path, Headers, Method, Body, IbrowseOptions, Timeout),
-      Result
-  end,
-  Result = (catch(CallbackFun(RequestFun))),
-  {reply, Result, State};
+    RequestFun = fun(Path, Headers, Method, Body) ->
+                         Result = ibrowse:send_req_direct(Pid, RootUrl ++ Path, Headers, Method, Body, IbrowseOptions, Timeout),
+                         Result
+                 end,
+    Result = (catch(CallbackFun(RequestFun))),
+    {reply, Result, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
@@ -79,7 +79,7 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 create_ibrowse_url(RootUrl) ->
-  ibrowse_lib:parse_url(RootUrl).
+    ibrowse_lib:parse_url(RootUrl).
 
 create_ssl_options(#url{protocol = Protocol}, Options) ->
     case (Protocol == https) orelse
