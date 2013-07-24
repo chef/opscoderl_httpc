@@ -20,18 +20,17 @@ request(PoolName, Endpoint, Headers, Method, Body) ->
     request(PoolName, Endpoint, Headers, Method, Body, ?DEFAULT_SINGLE_REQUEST_TIMEOUT).
 
 multi_request(PoolName, Fun, Timeout) ->
-    Pid = pooler:take_member(PoolName),
-    Result = oc_httpc_worker:multi_request(Pid, Fun, Timeout),
-    pooler:return_member(PoolName, Pid),
-    Result.
+    take_and_execute(PoolName, fun(Pid) ->
+                   oc_httpc_worker:multi_request(Pid, Fun, Timeout)
+               end).
 
--spec request(pool_name(), string(), headerList(), method(), body(), non_neg_integer()) -> response().
+-spec request(pool_name(), string(), headerList(), method(), body(), non_neg_integer()) ->
+                     response().
 request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
-    Pid = pooler:take_member(PoolName),
-    Result = oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, Timeout),
-    pooler:return_member(PoolName, Pid),
-    Result.
-
+    take_and_execute(PoolName, fun(Pid) ->
+                   oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, Timeout)
+               end).
+        
 -spec add_pool(pool_name(), pool_config()) -> any().
 add_pool(PoolName, Config)  ->
     RootUrl =proplists:get_value(root_url, Config),
@@ -51,4 +50,14 @@ update_response_format(Options) ->
             Options;
         false ->
             [{response_format,binary} | Options]
+    end.
+
+take_and_execute(PoolName, Fun) ->
+    case pooler:take_member(PoolName) of
+        error_no_members ->
+            {error, no_members};
+        Pid  ->
+            Result = Fun(Pid),
+            pooler:return_member(PoolName, Pid),
+            Result
     end.
