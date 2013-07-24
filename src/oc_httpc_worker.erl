@@ -35,10 +35,10 @@ start_link(RootUrl, IbrowseOptions) ->
     gen_server:start_link(?MODULE, [RootUrl, IbrowseOptions], []).
 
 request(Pid, Path, Headers, Method, Body, Timeout) ->
-    gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}).
+    gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}, Timeout).
 
 multi_request(Pid, Fun, Timeout) ->
-    gen_server:call(Pid, {multi_request, Fun, Timeout}).
+    gen_server:call(Pid, {multi_request, Fun, Timeout}, Timeout).
 
 %%%===================================================================
 %%% Gen Server Callbacks
