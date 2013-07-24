@@ -1,5 +1,5 @@
 -module(oc_httpc).
-
+-include("oc_httpc_types.hrl").
 -export([
          request/4,
          request/5,
@@ -25,14 +25,14 @@ multi_request(PoolName, Fun, Timeout) ->
     pooler:return_member(PoolName, Pid),
     Result.
 
--spec request(oc_httpc_types:pool_name(), string(), oc_httpc_types:headerList(), oc_httpc_types:method(), oc_httpc_types:body(), non_neg_integer()) -> oc_httpc_types:response().
+-spec request(pool_name(), string(), headerList(), method(), body(), non_neg_integer()) -> response().
 request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
     Pid = pooler:take_member(PoolName),
     Result = oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, Timeout),
     pooler:return_member(PoolName, Pid),
     Result.
 
--spec add_pool(oc_httpc_types:pool_name(), oc_httpc_types:pool_config()) -> any().
+-spec add_pool(pool_name(), pool_config()) -> any().
 add_pool(PoolName, Config)  ->
     RootUrl =proplists:get_value(root_url, Config),
     Options = proplists:get_value(ibrowse_options, Config, []),
