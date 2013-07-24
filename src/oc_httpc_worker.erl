@@ -52,12 +52,12 @@ init([RootUrl, IbrowseOptions]) ->
 handle_call({request, Path, Headers, Method, Body, Timeout},
             _From,
             State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid}) ->
-    Result = ibrowse:send_req_direct(Pid, RootUrl ++ Path, Headers, Method, Body, IbrowseOptions, Timeout),
+    Result = ibrowse:send_req_direct(Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout),
     {reply, Result, State};
 
 handle_call({multi_request, CallbackFun, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid} ) ->
     RequestFun = fun(Path, Headers, Method, Body) ->
-                         Result = ibrowse:send_req_direct(Pid, RootUrl ++ Path, Headers, Method, Body, IbrowseOptions, Timeout),
+                         Result = ibrowse:send_req_direct(Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout),
                          Result
                  end,
     Result = (catch(CallbackFun(RequestFun))),
@@ -87,3 +87,23 @@ create_ssl_options(#url{protocol = Protocol}, Options) ->
         false -> {[], false};
         true -> {ibrowse_lib:get_value(ssl_options, Options, []), true}
     end.
+
+enforce_trailing_slash(S) ->
+    Rev = lists:reverse(S),
+    case Rev of
+        [$/ | _Rest] ->
+            S;
+        RevNoSlash ->
+            lists:reverse([$/ | RevNoSlash])
+    end.
+
+enforce_no_leading_slash(S) ->
+    case S of
+        [$/ | Rest] ->
+            enforce_no_leading_slash(Rest);
+        S ->
+            S
+     end.
+
+combine(Root, Path) ->
+    enforce_trailing_slash(Root) ++ enforce_no_leading_slash(Path).
