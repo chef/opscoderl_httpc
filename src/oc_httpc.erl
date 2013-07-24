@@ -13,16 +13,15 @@
 -define(DEFAULT_SINGLE_REQUEST_TIMEOUT, 30000).
 -define(DEFAULT_MULTI_REQUEST_TIMEOUT, 30000).
 
+-spec request(pool_name(), string(), headerList(), method()) ->
+                     response().
 request(PoolName, Endpoint, Headers, Method) ->
     request(PoolName, Endpoint, Headers, Method, []).
 
+-spec request(pool_name(), string(), headerList(), method(), body()) ->
+                     response().
 request(PoolName, Endpoint, Headers, Method, Body) ->
     request(PoolName, Endpoint, Headers, Method, Body, ?DEFAULT_SINGLE_REQUEST_TIMEOUT).
-
-multi_request(PoolName, Fun, Timeout) ->
-    take_and_execute(PoolName, fun(Pid) ->
-                   oc_httpc_worker:multi_request(Pid, Fun, Timeout)
-               end).
 
 -spec request(pool_name(), string(), headerList(), method(), body(), non_neg_integer()) ->
                      response().
@@ -30,6 +29,14 @@ request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
     take_and_execute(PoolName, fun(Pid) ->
                    oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, Timeout)
                end).
+
+-spec multi_request(pool_name(), fun(), non_neg_integer()) ->
+                     any().
+multi_request(PoolName, Fun, Timeout) ->
+    take_and_execute(PoolName, fun(Pid) ->
+                   oc_httpc_worker:multi_request(Pid, Fun, Timeout)
+               end).
+
         
 -spec add_pool(pool_name(), pool_config()) -> any().
 add_pool(PoolName, Config)  ->
@@ -41,6 +48,7 @@ add_pool(PoolName, Config)  ->
                   | Config],
     {ok, _} = pooler:new_pool(PoolConfig).
 
+-spec delete_pool(pool_name()) -> ok | {error, term()}.
 delete_pool(PoolName) ->
     pooler:rm_pool(PoolName).
 
