@@ -1,16 +1,3 @@
--module(oc_httpc_types).
-
--export_type(
-[
-  pool_name/0,
-  pool_config/0,
-  method/0,
-  body/0,
-  headerList/0,
-  response/0,
-  ibrowse_option/0
-]).
-
 -type ibrowse_option() :: {max_sessions, integer()}        |
           {response_format,response_format()}|
           {stream_chunk_size, integer()}     |
