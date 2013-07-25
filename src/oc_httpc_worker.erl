@@ -57,10 +57,9 @@ handle_call({request, Path, Headers, Method, Body, Timeout},
 
 handle_call({multi_request, CallbackFun, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid} ) ->
     RequestFun = fun(Path, Headers, Method, Body) ->
-                         Result = ibrowse:send_req_direct(Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout),
-                         Result
+                         ibrowse:send_req_direct(Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout)
                  end,
-    Result = (catch(CallbackFun(RequestFun))),
+    Result = CallbackFun(RequestFun),
     {reply, Result, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,
