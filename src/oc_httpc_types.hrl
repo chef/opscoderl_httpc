@@ -1,7 +1,7 @@
 -type ibrowse_option() :: {max_sessions, integer()}        |
           {response_format,response_format()}|
-          {stream_chunk_size, integer()}     |
-          {max_pipeline_size, integer()}     |
+          {stream_chunk_size, non_neg_integer()}     |
+          {max_pipeline_size, non_neg_integer()}     |
           {trace, boolean()}                 | 
           {is_ssl, boolean()}                |
           {ssl_options, [sSLOpt()]}            |
