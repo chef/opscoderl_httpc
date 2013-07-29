@@ -44,19 +44,18 @@ multi_request(Pid, Fun, Timeout) ->
 %%% Gen Server Callbacks
 %%%===================================================================
 init([RootUrl, IbrowseOptions]) ->
-    Url = create_ibrowse_url(RootUrl),
-    SslOptions = create_ssl_options(Url, IbrowseOptions),
-    {ok, Pid} = ibrowse_http_client:start_link({undefined, Url, SslOptions}),
-    {ok, #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid}}.
+    process_flag(trap_exit, true),
+    {ok, #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = undefined}}.
 
-handle_call({request, Path, Headers, Method, Body, Timeout},
-            _From,
-            State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid}) ->
+handle_call(Request, From, State = #state{ibrowse_pid = undefined}) ->
+    handle_call(Request, From, make_http_client_pid(State));
+handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid}) ->
     Result = ibrowse:send_req_direct(Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout),
     {reply, Result, State};
 
 handle_call({multi_request, CallbackFun, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid} ) ->
     RequestFun = fun(Path, Headers, Method, Body) ->
+                         error_logger:error_report({oc_httpc_worker_mutli_request, {Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout}}),
                          ibrowse:send_req_direct(Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout)
                  end,
     Result = CallbackFun(RequestFun),
@@ -68,8 +67,8 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info(_Info, State) ->
-    {noreply, State}.
+handle_info({'EXIT', Pid, normal}, State = #state{ibrowse_pid = Pid}) ->
+    {noreply, make_http_client_pid(State)}.
 
 terminate(_Reason, _State) ->
     ok.
@@ -106,3 +105,8 @@ enforce_no_leading_slash(S) ->
 
 combine(Root, Path) ->
     enforce_trailing_slash(Root) ++ enforce_no_leading_slash(Path).
+
+make_http_client_pid(State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions}) ->
+    Url = create_ibrowse_url(RootUrl),
+    {ok, Pid} = ibrowse_http_client:start_link({undefined, Url, create_ssl_options(Url, IbrowseOptions)}),
+    State#state{ibrowse_pid = Pid}.
