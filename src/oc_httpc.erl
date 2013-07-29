@@ -64,7 +64,7 @@ take_and_execute(PoolName, Fun) ->
     case pooler:take_member(PoolName) of
         error_no_members ->
             {error, no_members};
-        Pid  ->
+        Pid when is_pid(Pid) ->
             Result = Fun(Pid),
             pooler:return_member(PoolName, Pid),
             Result
