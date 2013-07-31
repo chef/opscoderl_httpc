@@ -55,7 +55,6 @@ handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #sta
 
 handle_call({multi_request, CallbackFun, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid} ) ->
     RequestFun = fun(Path, Headers, Method, Body) ->
-                         error_logger:error_report({oc_httpc_worker_mutli_request, {Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout}}),
                          ibrowse:send_req_direct(Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout)
                  end,
     Result = CallbackFun(RequestFun),
