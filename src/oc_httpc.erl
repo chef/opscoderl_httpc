@@ -9,6 +9,11 @@
          delete_pool/1
         ]).
 
+%Type exports
+-export_type([
+         response/0
+        ]).
+
 
 -define(DEFAULT_SINGLE_REQUEST_TIMEOUT, 30000).
 -define(DEFAULT_MULTI_REQUEST_TIMEOUT, 30000).
