@@ -42,7 +42,6 @@
 -type srtf() :: boolean() | filename() | {append, filename()}.
 -type filename() :: string().
 -type response_format() :: list | binary.
--type pool_name() :: atom().
 -type pool_option() :: {root_url, string()} |
                        {max_conns, non_neg_integer()} | 
                        {init_cons, non_neg_integer()} |

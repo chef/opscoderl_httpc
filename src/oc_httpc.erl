@@ -15,36 +15,33 @@
 
 %% @doc Issue request to available pid in named pool.  Request specifies; the endpoint from
 %% the root url, the headers and the method.  The body and timeout will be defaulted.
-
--spec request(pool_name(), string(), headerList(), method()) ->
+-spec request(atom(), string(), headerList(), method()) ->
                      response().
 request(PoolName, Endpoint, Headers, Method) ->
     request(PoolName, Endpoint, Headers, Method, []).
 
 %% @doc Issue request to available pid in named pool.  Request specifies; the endpoint from
 %% the root url, the headers, the method and the body.  The timeout will be defaulted.
-
--spec request(pool_name(), string(), headerList(), method(), body()) ->
+-spec request(atom(), string(), headerList(), method(), body()) ->
                      response().
 request(PoolName, Endpoint, Headers, Method, Body) ->
     request(PoolName, Endpoint, Headers, Method, Body, ?DEFAULT_SINGLE_REQUEST_TIMEOUT).
 
 %% @doc Issue request to available pid in named pool.  Request specifies; the endpoint from
 %% the root url, the headers, the method, the body and the timeout.
-
--spec request(pool_name(), string(), headerList(), method(), body(), non_neg_integer()) ->
+-spec request(atom(), string(), headerList(), method(), body(), non_neg_integer()) ->
                      response().
 request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
     take_and_execute(PoolName, fun(Pid) ->
                    oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, Timeout)
                end).
+
 %% @doc Sets up a multi_request in named pool.  The fun passed in a single arity fun that
 %% will be passed an arity four fun.  The arity four fun is
 %% RequestFun(Path, Headers, Method, Body).  This RequestFun can be used to issue multiple
 %% requests on the same connection.  The result of the RequestFun will be returned on each
 %% invocation.
-
--spec multi_request(pool_name(), fun(), non_neg_integer()) ->
+-spec multi_request(atom(), fun(), non_neg_integer()) ->
                      any().
 multi_request(PoolName, Fun, Timeout) ->
     take_and_execute(PoolName, fun(Pid) ->
@@ -56,8 +53,7 @@ multi_request(PoolName, Fun, Timeout) ->
 %% {max_count, non_neg_integer}.  Ibrowse specific configuration can be passed as
 %% {ibrowse_options, [options]}.  Additional pooler configuration can be passed as
 %% documented in the pooler application https://github.com/seth/pooler
-        
--spec add_pool(pool_name(), pool_config()) -> any().
+-spec add_pool(atom(), pool_config()) -> any().
 add_pool(PoolName, Config)  ->
     RootUrl =proplists:get_value(root_url, Config),
     Options = proplists:get_value(ibrowse_options, Config, []),
@@ -68,8 +64,7 @@ add_pool(PoolName, Config)  ->
     {ok, _} = pooler:new_pool(PoolConfig).
 
 %% @doc Delete the named pool
-
--spec delete_pool(pool_name()) -> ok | {error, term()}.
+-spec delete_pool(atom()) -> ok | {error, term()}.
 delete_pool(PoolName) ->
     pooler:rm_pool(PoolName).
 
