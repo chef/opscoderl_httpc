@@ -63,7 +63,7 @@ add_pool(PoolName, Config)  ->
     Options = proplists:get_value(ibrowse_options, Config, []),
     UpdatedOptions = update_ibrowse_options(Options, Config),
     PoolConfig = [{name, PoolName},
-                  {start_mfa, {oc_httpc_worker, start_link, [RootUrl, UpdatedOptions]}}
+                  {start_mfa, {oc_httpc_worker, start_link, [RootUrl, UpdatedOptions, Config]}}
                   | Config],
     {ok, _} = pooler:new_pool(PoolConfig).
 
@@ -79,8 +79,8 @@ update_ibrowse_options(Options, Config) ->
         false ->
             [{response_format,binary} | Options]
     end,
-    {Val, Unit} = proplists:get_value(max_connection_lifetime, Config, {1, min}),
-    [{inactivity_timeout, convert_units({Val * 2, Unit}, ms)} |
+    {Val, Unit} = proplists:get_value(max_connection_duration, Config, {1, min}),
+    [{inactivity_timeout, oc_time:convert_units({Val * 2, Unit}, ms)} |
      UpdatedOptions].
 
 take_and_execute(PoolName, Fun) ->
@@ -92,13 +92,3 @@ take_and_execute(PoolName, Fun) ->
             pooler:return_member(PoolName, Pid),
             Result
     end.
-
-convert_units({Val, SourceUnit}, TargetUnit) ->
-    Val * to_ms(SourceUnit, TargetUnit).
-
-to_ms(_Unit, _Unit) ->
-    1;
-to_ms(min, ms) ->
-    60000;
-to_ms(sec, ms) ->
-    1/1000.

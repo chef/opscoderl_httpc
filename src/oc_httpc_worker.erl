@@ -12,7 +12,7 @@
 
 %% API
 -export([
-         start_link/2,
+         start_link/3,
          request/6,
          multi_request/3
         ]).
@@ -23,7 +23,9 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {ibrowse_options = [], root_url, ibrowse_pid}).
+%% max_connection_duration is in ms
+-record(state, {ibrowse_options = [], root_url, ibrowse_pid, current_connection_requests = 0,
+                max_connection_requests, max_connection_duration, born_on_time}).
 
 -include_lib("ibrowse/include/ibrowse.hrl").
 
@@ -31,8 +33,8 @@
 %%% API
 %%%===================================================================
 
-start_link(RootUrl, IbrowseOptions) ->
-    gen_server:start_link(?MODULE, [RootUrl, IbrowseOptions], []).
+start_link(RootUrl, IbrowseOptions, Config) ->
+    gen_server:start_link(?MODULE, [RootUrl, IbrowseOptions, Config], []).
 
 request(Pid, Path, Headers, Method, Body, Timeout) when is_atom(Method) ->
     gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}, Timeout).
@@ -46,15 +48,22 @@ multi_request(Pid, Fun, Timeout) ->
 %%%===================================================================
 %%% Gen Server Callbacks
 %%%===================================================================
-init([RootUrl, IbrowseOptions]) ->
+init([RootUrl, IbrowseOptions, Config]) ->
     process_flag(trap_exit, true),
-    {ok, #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = undefined}}.
+    MaxRequests = proplists:get_value(max_connection_request_limit, Config, 100),
+    MaxConnectionDuration = oc_time:convert_units(proplists:get_value(max_connection_lifetime, Config, {1, min}), ms),
+    #url{host = Host, port = Port} = create_ibrowse_url(RootUrl),
+    ibrowse:add_config([{ignored, ignored}, {dest, Host, Port, 1, 1, IbrowseOptions}]),
+    {ok, #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = undefined,
+                max_connection_requests = MaxRequests,
+                max_connection_duration = MaxConnectionDuration}}.
 
 handle_call(Request, From, State = #state{ibrowse_pid = undefined}) ->
     handle_call(Request, From, make_http_client_pid(State));
-handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid}) ->
-    Result = ibrowse:send_req_direct(Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout),
-    {reply, Result, State};
+handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions}) ->
+    NewState = refresh_connection_process(State),
+    Result = ibrowse:send_req_direct(NewState#state.ibrowse_pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout),
+    {reply, Result, NewState};
 
 handle_call(_Request, _From, State) ->
     Reply = ok,
@@ -63,8 +72,13 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
+%% Ibrowse prompted exit
 handle_info({'EXIT', Pid, normal}, State = #state{ibrowse_pid = Pid}) ->
-    {noreply, make_http_client_pid(State)}.
+    error_logger:info_report(ibrowse_prompted_refresh),
+    {noreply, make_http_client_pid(State)};
+%% Connection management exit
+handle_info({'EXIT', Pid, normal}, State) ->
+    {noreply, refresh_connection_process(State)}.
 
 terminate(_Reason, _State) ->
     ok.
@@ -105,4 +119,22 @@ combine(Root, Path) ->
 make_http_client_pid(State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions}) ->
     Url = create_ibrowse_url(RootUrl),
     {ok, Pid} = ibrowse_http_client:start_link({undefined, Url, create_ssl_options(Url, IbrowseOptions)}),
-    State#state{ibrowse_pid = Pid}.
+    State#state{ibrowse_pid = Pid, born_on_time = os:timestamp(), current_connection_requests = 0}.
+
+refresh_connection_process(State = #state{current_connection_requests = CurrentConnectionRequests,
+                                          max_connection_requests = MaxConnectionRequests})
+  when CurrentConnectionRequests >= MaxConnectionRequests  ->
+    error_logger:info_report(request_limit_hit),
+    make_http_client_pid(State);
+refresh_connection_process(State = #state{born_on_time = BornOnTime,
+                                          max_connection_duration = MaxConnectionDuration,
+                                          current_connection_requests = CurrentConnectionRequests}) ->
+    Duration = (timer:now_diff(os:timestamp(), BornOnTime)/1000),
+    error_logger:info_report({Duration, MaxConnectionDuration, Duration >= MaxConnectionDuration}),
+    case Duration >= MaxConnectionDuration of
+        true ->
+            error_logger:info_report(duration_based),
+            make_http_client_pid(State);
+        false ->
+            State#state{current_connection_requests = CurrentConnectionRequests + 1}
+     end.
