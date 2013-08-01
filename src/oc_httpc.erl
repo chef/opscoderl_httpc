@@ -17,7 +17,6 @@
 
 -define(DEFAULT_SINGLE_REQUEST_TIMEOUT, 30000).
 -define(DEFAULT_MULTI_REQUEST_TIMEOUT, 30000).
-
 %% @doc Issue request to available pid in named pool.  Request specifies; the endpoint from
 %% the root url, the headers and the method.  The body and timeout will be defaulted.
 -spec request(atom(), string(), headerList(), method()) ->
@@ -62,7 +61,7 @@ multi_request(PoolName, Fun, Timeout) ->
 add_pool(PoolName, Config)  ->
     RootUrl =proplists:get_value(root_url, Config),
     Options = proplists:get_value(ibrowse_options, Config, []),
-    UpdatedOptions = update_response_format(Options),
+    UpdatedOptions = update_ibrowse_options(Options, Config),
     PoolConfig = [{name, PoolName},
                   {start_mfa, {oc_httpc_worker, start_link, [RootUrl, UpdatedOptions]}}
                   | Config],
@@ -73,13 +72,16 @@ add_pool(PoolName, Config)  ->
 delete_pool(PoolName) ->
     pooler:rm_pool(PoolName).
 
-update_response_format(Options) ->
-    case proplists:is_defined(response_format, Options) of
+update_ibrowse_options(Options, Config) ->
+    UpdatedOptions = case proplists:is_defined(response_format, Options) of
         true ->
             Options;
         false ->
             [{response_format,binary} | Options]
-    end.
+    end,
+    {Val, Unit} = proplists:get_value(max_connection_lifetime, Config, {1, min}),
+    [{inactivity_timeout, convert_units({Val * 2, Unit}, ms)} |
+     UpdatedOptions].
 
 take_and_execute(PoolName, Fun) ->
     case pooler:take_member(PoolName) of
@@ -90,3 +92,13 @@ take_and_execute(PoolName, Fun) ->
             pooler:return_member(PoolName, Pid),
             Result
     end.
+
+convert_units({Val, SourceUnit}, TargetUnit) ->
+    Val * to_ms(SourceUnit, TargetUnit).
+
+to_ms(_Unit, _Unit) ->
+    1;
+to_ms(min, ms) ->
+    60000;
+to_ms(sec, ms) ->
+    1/1000.
