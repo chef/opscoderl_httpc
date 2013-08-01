@@ -34,11 +34,14 @@
 start_link(RootUrl, IbrowseOptions) ->
     gen_server:start_link(?MODULE, [RootUrl, IbrowseOptions], []).
 
-request(Pid, Path, Headers, Method, Body, Timeout) ->
+request(Pid, Path, Headers, Method, Body, Timeout) when is_atom(Method) ->
     gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}, Timeout).
 
 multi_request(Pid, Fun, Timeout) ->
-    gen_server:call(Pid, {multi_request, Fun, Timeout}, Timeout).
+    RequestFun = fun(Path, Headers, Method, Body) when is_atom(Method) ->
+                         oc_httpc_worker:request(Pid, Path, Headers, Method, Body, Timeout)
+                 end,
+    Fun(RequestFun).
 
 %%%===================================================================
 %%% Gen Server Callbacks
@@ -53,12 +56,6 @@ handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #sta
     Result = ibrowse:send_req_direct(Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout),
     {reply, Result, State};
 
-handle_call({multi_request, CallbackFun, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = Pid} ) ->
-    RequestFun = fun(Path, Headers, Method, Body) ->
-                         ibrowse:send_req_direct(Pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout)
-                 end,
-    Result = CallbackFun(RequestFun),
-    {reply, Result, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
