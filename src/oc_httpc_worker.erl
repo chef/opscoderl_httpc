@@ -25,7 +25,7 @@
 
 %% max_connection_duration is in ms
 -record(state, {ibrowse_options = [], root_url, ibrowse_pid, current_connection_requests = 0,
-                max_connection_requests, max_connection_duration, born_on_time}).
+                max_connection_requests, max_connection_duration, born_on_time, kill_expected = false}).
 
 -include_lib("ibrowse/include/ibrowse.hrl").
 
@@ -51,7 +51,7 @@ multi_request(Pid, Fun, Timeout) ->
 init([RootUrl, IbrowseOptions, Config]) ->
     process_flag(trap_exit, true),
     MaxRequests = proplists:get_value(max_connection_request_limit, Config, 100),
-    MaxConnectionDuration = oc_time:convert_units(proplists:get_value(max_connection_lifetime, Config, {1, min}), ms),
+    MaxConnectionDuration = oc_time:convert_units(proplists:get_value(max_connection_duration, Config, {1, min}), ms),
     #url{host = Host, port = Port} = create_ibrowse_url(RootUrl),
     ibrowse:add_config([{ignored, ignored}, {dest, Host, Port, 1, 1, IbrowseOptions}]),
     {ok, #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = undefined,
@@ -72,13 +72,12 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-%% Ibrowse prompted exit
-handle_info({'EXIT', Pid, normal}, State = #state{ibrowse_pid = Pid}) ->
-    error_logger:info_report(ibrowse_prompted_refresh),
+handle_info({'EXIT', Pid, normal}, State = #state{ibrowse_pid = Pid, kill_expected = false}) ->
     {noreply, make_http_client_pid(State)};
-%% Connection management exit
-handle_info({'EXIT', Pid, normal}, State) ->
-    {noreply, refresh_connection_process(State)}.
+handle_info({'EXIT', _Pid, normal}, State = #state{kill_expected = true}) ->
+    {noreply, make_http_client_pid(State)};
+handle_info({'EXIT', _Pid, killed}, State = #state{kill_expected = true}) ->
+    {noreply, make_http_client_pid(State)}.
 
 terminate(_Reason, _State) ->
     ok.
@@ -124,17 +123,22 @@ make_http_client_pid(State = #state{root_url = RootUrl, ibrowse_options = Ibrows
 refresh_connection_process(State = #state{current_connection_requests = CurrentConnectionRequests,
                                           max_connection_requests = MaxConnectionRequests})
   when CurrentConnectionRequests >= MaxConnectionRequests  ->
-    error_logger:info_report(request_limit_hit),
-    make_http_client_pid(State);
+    UpdatedState = clear_previous_connection(State),
+    make_http_client_pid(UpdatedState);
 refresh_connection_process(State = #state{born_on_time = BornOnTime,
                                           max_connection_duration = MaxConnectionDuration,
                                           current_connection_requests = CurrentConnectionRequests}) ->
     Duration = (timer:now_diff(os:timestamp(), BornOnTime)/1000),
-    error_logger:info_report({Duration, MaxConnectionDuration, Duration >= MaxConnectionDuration}),
     case Duration >= MaxConnectionDuration of
         true ->
-            error_logger:info_report(duration_based),
-            make_http_client_pid(State);
+            UpdatedState = clear_previous_connection(State),
+            make_http_client_pid(UpdatedState);
         false ->
             State#state{current_connection_requests = CurrentConnectionRequests + 1}
      end.
+
+clear_previous_connection(State = #state{ibrowse_pid = undefined}) ->
+    State;
+clear_previous_connection(State = #state{ibrowse_pid = Pid}) ->
+    ibrowse_http_client:stop(Pid),
+    State#state{kill_expected = true}.

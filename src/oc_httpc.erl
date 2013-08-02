@@ -62,6 +62,7 @@ add_pool(PoolName, Config)  ->
     RootUrl =proplists:get_value(root_url, Config),
     Options = proplists:get_value(ibrowse_options, Config, []),
     UpdatedOptions = update_ibrowse_options(Options, Config),
+    enforce_inactivity_timeout(UpdatedOptions),
     PoolConfig = [{name, PoolName},
                   {start_mfa, {oc_httpc_worker, start_link, [RootUrl, UpdatedOptions, Config]}}
                   | Config],
@@ -91,4 +92,14 @@ take_and_execute(PoolName, Fun) ->
             Result = Fun(Pid),
             pooler:return_member(PoolName, Pid),
             Result
+    end.
+
+enforce_inactivity_timeout(Options) ->
+    InactivityTimeout = proplists:get_value(inactivity_timeout, Options, 0),
+    SetInactivityTimeout = ibrowse:get_config_value(inactivity_timeout, 0),
+    case InactivityTimeout > SetInactivityTimeout of
+        true ->
+            ok = gen_server:call(ibrowse, {set_config_value, inactivity_timeout, 60000});
+        false  ->
+            no_op
     end.
