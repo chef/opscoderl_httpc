@@ -80,10 +80,14 @@ update_ibrowse_options(Options, Config) ->
         false ->
             [{response_format,binary} | Options]
     end,
-    {Val, Unit} = proplists:get_value(max_connection_duration, Config, {1, min}),
-    [{inactivity_timeout, oc_time:convert_units({Val * 2, Unit}, ms)} |
-     UpdatedOptions].
-
+    case proplists:is_defined(inactivity_timeout, UpdatedOptions) of
+        true ->
+            UpdatedOptions;
+        false ->
+            {Val, Unit} = proplists:get_value(max_connection_duration, Config, {1, min}),
+            [{inactivity_timeout, oc_time:convert_units({Val * 2, Unit}, ms)} |
+            UpdatedOptions]
+    end.
 take_and_execute(PoolName, Fun) ->
     case pooler:take_member(PoolName) of
         error_no_members ->
@@ -99,7 +103,7 @@ enforce_inactivity_timeout(Options) ->
     SetInactivityTimeout = ibrowse:get_config_value(inactivity_timeout, 0),
     case InactivityTimeout > SetInactivityTimeout of
         true ->
-            ok = gen_server:call(ibrowse, {set_config_value, inactivity_timeout, 60000});
+            ok = gen_server:call(ibrowse, {set_config_value, inactivity_timeout, InactivityTimeout});
         false  ->
             no_op
     end.
