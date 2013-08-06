@@ -6,7 +6,9 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  ibrowse,
+                  pooler
                  ]},
   %% uncomment if this is an active application
   %% {mod, { opscoderl_httpc_app, []}},

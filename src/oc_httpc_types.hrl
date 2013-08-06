@@ -1,20 +1,7 @@
--module(oc_httpc_types).
-
--export_type(
-[
-  pool_name/0,
-  pool_config/0,
-  method/0,
-  body/0,
-  headerList/0,
-  response/0,
-  ibrowse_option/0
-]).
-
 -type ibrowse_option() :: {max_sessions, integer()}        |
           {response_format,response_format()}|
-          {stream_chunk_size, integer()}     |
-          {max_pipeline_size, integer()}     |
+          {stream_chunk_size, non_neg_integer()}     |
+          {max_pipeline_size, non_neg_integer()}     |
           {trace, boolean()}                 | 
           {is_ssl, boolean()}                |
           {ssl_options, [sSLOpt()]}            |
@@ -55,7 +42,6 @@
 -type srtf() :: boolean() | filename() | {append, filename()}.
 -type filename() :: string().
 -type response_format() :: list | binary.
--type pool_name() :: atom().
 -type pool_option() :: {root_url, string()} |
                        {max_conns, non_neg_integer()} | 
                        {init_cons, non_neg_integer()} |
