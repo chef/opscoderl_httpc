@@ -22,11 +22,11 @@
 opscoderl_ibrowse_test_() ->
     {setup,
      fun() ->
-            application:start(crypto),
-            application:start(public_key),
-            application:start(ssl),
-            application:start(pooler),
-            ibrowse:start(),
+             application:start(crypto),
+             application:start(public_key),
+             application:start(ssl),
+             application:start(pooler),
+             ibrowse:start(),
              ok
      end,
      fun(_) ->
@@ -102,11 +102,61 @@ multi_request_test() ->
                   end,
     Options = [{connect_timeout, 5000}],
     PoolConfig = [{root_url, RootUrl}, {init_count, 50}, {max_count, 250},
-			{ibrowse_options, Options}],
-		oc_httpc:add_pool(list_to_atom(RootUrl), PoolConfig),
+                  {ibrowse_options, Options}],
+    oc_httpc:add_pool(list_to_atom(RootUrl), PoolConfig),
     Results = (catch oc_httpc:multi_request(list_to_atom(RootUrl), CallbackFun , 60000)),
-		oc_httpc:delete_pool(list_to_atom(RootUrl)),
+    oc_httpc:delete_pool(list_to_atom(RootUrl)),
     ?assertEqual(15, length(Results)),
     [?assertMatch({ok, _,_,_}, Result) || Result <- Results].
+
+request_error_test_() ->
+    Modules = [ibrowse, ibrowse_http_client],
+    Timeout = 500,
+    {foreach,
+     fun() ->
+             error_logger:tty(false),
+             application:start(ibrowse),
+             RootUrl = "http://jigsaw.w3.org/",
+             Options = [{connect_timeout, 5000}],
+             PoolConfig = [{root_url, RootUrl}, {init_count, 50}, {max_count, 250},
+                           {ibrowse_options, Options}],
+             oc_httpc:add_pool(foo, PoolConfig),
+             Pid = spawn(fun() -> ok end),
+
+
+             [meck:new(Mod) || Mod <- Modules],    
+             meck:expect(ibrowse_http_client, start_link, fun(_) ->
+                                                                  {ok, Pid}
+                                                          end),
+
+             ok
+     end,
+     fun(_) ->
+             [meck:unload(Mod) || Mod <- Modules],
+             oc_httpc:delete_pool(foo),
+             application:stop(ibrowse),
+             ok
+     end,
+
+     [{"Timeout exception should be adapted to error, req_timedout",
+       fun() ->
+               meck:expect(ibrowse, send_req_direct, fun(_, _, _, _, _, _, _) ->
+                                                             timer:sleep(Timeout + 500)
+                                                     end),
+
+               Result = oc_httpc:request(foo, "/", [], get, [], Timeout),
+
+               ?assertEqual({error, req_timedout}, Result)
+       end},
+     {"Any other exception should be thrown",
+     fun() ->
+             meck:expect(ibrowse, send_req_direct, fun(_,_,_,_,_,_,_) ->
+                                                           erlang:error(other_error)
+                                                               end),
+             Result = (catch(oc_httpc:request(foo, "/", [], get, [], Timeout))),
+
+             ?assertMatch({'EXIT', {{other_error,_}, _}}, Result)
+                            end}]
+    }.
 
 

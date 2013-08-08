@@ -37,7 +37,15 @@ start_link(RootUrl, IbrowseOptions, Config) ->
     gen_server:start_link(?MODULE, [RootUrl, IbrowseOptions, Config], []).
 
 request(Pid, Path, Headers, Method, Body, Timeout) when is_atom(Method) ->
-    gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}, Timeout).
+    try gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}, Timeout) of
+        Result ->
+            Result
+    catch
+        exit:{timeout, _} ->
+            {error, req_timedout};
+        Other ->
+            throw(Other)
+    end.
 
 multi_request(Pid, Fun, Timeout) ->
     RequestFun = fun(Path, Headers, Method, Body) when is_atom(Method) ->
