@@ -34,6 +34,9 @@
          response/0
         ]).
 
+-ifdef(TEST).
+-compile([export_all]).
+-endif.
 
 -define(DEFAULT_SINGLE_REQUEST_TIMEOUT, 30000).
 -define(DEFAULT_MULTI_REQUEST_TIMEOUT, 30000).
@@ -109,7 +112,7 @@ update_ibrowse_options(Options, Config) ->
             UpdatedOptions]
     end.
 take_and_execute(PoolName, Fun) ->
-    case pooler:take_member(PoolName) of
+    case pooler:take_member(PoolName, get_pooler_timeout()) of
         error_no_members ->
             {error, no_members};
         Pid when is_pid(Pid) ->
@@ -126,4 +129,17 @@ enforce_inactivity_timeout(Options) ->
             ok = gen_server:call(ibrowse, {set_config_value, inactivity_timeout, InactivityTimeout});
         false  ->
             no_op
+    end.
+
+-spec get_pooler_timeout() -> pooler:time_spec().
+get_pooler_timeout() ->
+    case application:get_env(opscoderl_httpc, pooler_timeout) of
+        undefined ->
+            0;
+        {ok, Val} when is_integer(Val) andalso Val >= 0 ->
+            Val;
+        {ok, {Val, _} = TimeTuple} when is_integer(Val) andalso Val >= 0 ->
+            TimeTuple;
+        {ok, Other} ->
+            exit({invalid_pooler_timeout, Other})
     end.

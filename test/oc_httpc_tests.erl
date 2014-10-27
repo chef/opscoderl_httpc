@@ -162,4 +162,13 @@ request_error_test_() ->
                             end}]
     }.
 
-
+get_pooler_timeout_test() ->
+    application:set_env(opscoderl_httpc, pooler_timeout, foo),
+    ?assertExit({invalid_pooler_timeout, foo}, oc_httpc:get_pooler_timeout()),
+    application:set_env(opscoderl_httpc, pooler_timeout, {-1, min}),
+    ?assertExit({invalid_pooler_timeout, {-1, min}}, oc_httpc:get_pooler_timeout()),
+    application:set_env(opscoderl_httpc, pooler_timeout, {0, min}),
+    ?assertEqual({0, min}, oc_httpc:get_pooler_timeout()),
+    application:set_env(opscoderl_httpc, pooler_timeout, 100),
+    ?assertEqual(100, oc_httpc:get_pooler_timeout()),
+    application:set_env(opscoderl_httpc, pooler_timeout, undefined).
