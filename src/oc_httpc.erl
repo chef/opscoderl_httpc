@@ -24,6 +24,7 @@
          request/4,
          request/5,
          request/6,
+         request/7,
          multi_request/3,
          add_pool/2,
          delete_pool/1
@@ -59,8 +60,15 @@ request(PoolName, Endpoint, Headers, Method, Body) ->
 -spec request(atom(), string(), headerList(), method(), body(), non_neg_integer()) ->
                      response().
 request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
+    request(PoolName, Endpoint, Headers, Method, Body, Timeout, []).
+
+%% @doc Issue request to available pid in named pool.  Request specifies; the endpoint from
+%% the root url, the headers, the method, the body and the timeout.
+-spec request(atom(), string(), headerList(), method(), body(), non_neg_integer(), [proplists:property()]) ->
+                     response().
+request(PoolName, Endpoint, Headers, Method, Body, Timeout, IbrowseLocalOptions) ->
     take_and_execute(PoolName, fun(Pid) ->
-                   oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, Timeout)
+                   oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, Timeout, IbrowseLocalOptions)
                end).
 
 %% @doc Sets up a multi_request in named pool.  The fun passed in a single arity fun that

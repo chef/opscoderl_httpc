@@ -25,7 +25,7 @@
 %% API
 -export([
          start_link/3,
-         request/6,
+         request/7,
          multi_request/3
         ]).
 
@@ -48,8 +48,8 @@
 start_link(RootUrl, IbrowseOptions, Config) ->
     gen_server:start_link(?MODULE, [RootUrl, IbrowseOptions, Config], []).
 
-request(Pid, Path, Headers, Method, Body, Timeout) when is_atom(Method) ->
-    try gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}, Timeout) of
+request(Pid, Path, Headers, Method, Body, Timeout, LocalIbrowseOptions) when is_atom(Method) ->
+    try gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout, LocalIbrowseOptions}, Timeout) of
         Result ->
             Result
     catch
@@ -61,7 +61,7 @@ request(Pid, Path, Headers, Method, Body, Timeout) when is_atom(Method) ->
 
 multi_request(Pid, Fun, Timeout) ->
     RequestFun = fun(Path, Headers, Method, Body) when is_atom(Method) ->
-                         oc_httpc_worker:request(Pid, Path, Headers, Method, Body, Timeout)
+                         oc_httpc_worker:request(Pid, Path, Headers, Method, Body, Timeout, [])
                  end,
     Fun(RequestFun).
 
@@ -80,9 +80,19 @@ init([RootUrl, IbrowseOptions, Config]) ->
 
 handle_call(Request, From, State = #state{ibrowse_pid = undefined}) ->
     handle_call(Request, From, make_http_client_pid(State));
-handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions}) ->
+handle_call({request, Path, Headers, Method, Body, Timeout, LocalIbrowseOptions},
+            _From,
+            State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions}) ->
     NewState = refresh_connection_process(State),
-    Result = ibrowse:send_req_direct(NewState#state.ibrowse_pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout),
+    URL = combine(RootUrl, Path),
+    Result = ibrowse:send_req_direct(
+               NewState#state.ibrowse_pid,
+               URL,
+               Headers,
+               Method,
+               Body,
+               LocalIbrowseOptions ++ IbrowseOptions, %% Maybe ++ is too simple
+               Timeout),
     {reply, Result, NewState};
 
 handle_call(_Request, _From, State) ->
@@ -132,6 +142,10 @@ enforce_no_leading_slash(S) ->
             S
      end.
 
+%% This case covers when absolute URLs come in via Path
+combine(_Root, [$h,$t,$t,$p|_]=Path) ->
+    Path;
+%% This one combines a "Root" URL with a "Path"
 combine(Root, Path) ->
     enforce_trailing_slash(Root) ++ enforce_no_leading_slash(Path).
 
