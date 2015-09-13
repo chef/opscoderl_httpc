@@ -37,7 +37,7 @@
 
 %% max_connection_duration is in ms
 -record(state, {ibrowse_options = [], root_url, ibrowse_pid, current_connection_requests = 0,
-                max_connection_requests, max_connection_duration, born_on_time, kill_expected = false}).
+                max_connection_requests, max_connection_duration, born_on_time}).
 
 -include_lib("ibrowse/include/ibrowse.hrl").
 
@@ -92,12 +92,10 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info({'EXIT', Pid, normal}, State = #state{ibrowse_pid = Pid, kill_expected = false}) ->
+handle_info({'EXIT', Pid, normal}, State = #state{ibrowse_pid = Pid}) ->
     {noreply, make_http_client_pid(State)};
-handle_info({'EXIT', _Pid, normal}, State = #state{kill_expected = true}) ->
-    {noreply, make_http_client_pid(State)};
-handle_info({'EXIT', _Pid, killed}, State = #state{kill_expected = true}) ->
-    {noreply, make_http_client_pid(State)}.
+handle_info({'EXIT', Pid, _Reason}, State = #state{ibrowse_pid=Cur}) when Pid /= Cur ->
+    {noreply, State}.
 
 terminate(_Reason, _State) ->
     ok.
@@ -161,4 +159,4 @@ clear_previous_connection(State = #state{ibrowse_pid = undefined}) ->
     State;
 clear_previous_connection(State = #state{ibrowse_pid = Pid}) ->
     ibrowse_http_client:stop(Pid),
-    State#state{kill_expected = true}.
+    State.
