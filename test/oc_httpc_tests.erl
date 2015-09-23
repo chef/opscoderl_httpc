@@ -78,8 +78,6 @@ assert_200_req(RootUrl, Endpoint, Method, OptionsInput) ->
              oc_httpc:add_pool(list_to_atom(RootUrl), PoolConfig),
              Result = (catch oc_httpc:request(list_to_atom(RootUrl), Endpoint, [], Method, [], 60000)),
              oc_httpc:delete_pool(list_to_atom(RootUrl)),
-
-
              ?assertMatch({ok, _, _, _}, Result)
      end}.
 
@@ -112,6 +110,43 @@ multi_request_test() ->
     ?assertEqual(15, length(Results)),
     [?assertMatch({ok, _,_,_}, Result) || Result <- Results].
 
+process_leak_test() ->
+    Options = [{connect_timeout, 5000}],
+    PoolConfig = [{root_url, "http://google.com"}, {init_count, 3}, {max_count, 3},
+                  {ibrowse_options, Options}, {max_connection_requests, 1}],
+    oc_httpc:add_pool(proc_mon_test, PoolConfig),
+    Me = self(),
+    [ spawn(fun() ->
+                    oc_httpc:request(proc_mon_test, "/", [], get, [], 60000),
+                    Me ! done
+            end) || _X <- lists:seq(1, 20)
+    ],
+    collect_all(20),
+    %% Each worker should only have two links, one link to the member_sup
+    %% and one link to the ibrowse pid
+    ?assert(lists:all(fun(X) -> length(X) =< 2 end, worker_links(proc_mon_test))),
+    oc_httpc:delete_pool(proc_mon_test).
+
+collect_all(Count) ->
+    collect_all(Count, 0).
+
+collect_all(Count, Count) ->
+    ok;
+collect_all(Count, Curr) ->
+    receive
+        done ->
+            collect_all(Count, Curr + 1)
+    end.
+
+%% Takes an atom representing a pool name and returns a list of lists.  The inner lists
+%% contain the links for each pool worker process.
+worker_links(PoolName) ->
+    MemberSup = list_to_atom("pooler_" ++ atom_to_list(PoolName) ++ "_member_sup"),
+    PoolSup = list_to_atom("pooler_" ++ atom_to_list(PoolName) ++ "_pool_sup"),
+    {links, Workers} = erlang:process_info(whereis(MemberSup), links),
+    Info = [ erlang:process_info(W) || W <- Workers ],
+    [proplists:get_value(links, I) || I <- Info, proplists:get_value(registered_name, I) /= PoolSup].
+
 request_error_test_() ->
     Modules = [ibrowse, ibrowse_http_client],
     Timeout = 500,
@@ -127,7 +162,7 @@ request_error_test_() ->
              Pid = spawn(fun() -> ok end),
 
 
-             [meck:new(Mod) || Mod <- Modules],    
+             [meck:new(Mod) || Mod <- Modules],
              meck:expect(ibrowse_http_client, start_link, fun(_) ->
                                                                   {ok, Pid}
                                                           end),
