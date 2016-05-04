@@ -56,7 +56,7 @@ request(PoolName, Endpoint, Headers, Method, Body) ->
 
 %% @doc Issue request to available pid in named pool.  Request specifies; the endpoint from
 %% the root url, the headers, the method, the body and the timeout.
--spec request(atom(), string(), headerList(), method(), body(), non_neg_integer()) ->
+-spec request(atom(), string(), headerList(), method(), body(), timeout()) ->
                      response().
 request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
     take_and_execute(PoolName, fun(Pid) ->
