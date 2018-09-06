@@ -1,0 +1,14 @@
+language: erlang
+otp_release:
+  - 17.5 # deprecate this soon, and add erl 19/20
+  - 18.3
+  
+install: true
+script: rebar3 eunit
+
+branches:
+  only:
+    - master
+
+
+
