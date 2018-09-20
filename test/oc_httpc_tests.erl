@@ -25,10 +25,8 @@
 opscoderl_ibrowse_test_() ->
     {setup,
      fun() ->
-             application:start(crypto),
-             application:start(public_key),
-             application:start(ssl),
-             application:start(pooler),
+             application:ensure_all_started(ssl),
+             application:ensure_all_started(pooler),
              ibrowse:start(),
              ok
      end,
@@ -36,7 +34,7 @@ opscoderl_ibrowse_test_() ->
              ok
      end,
      [
-      %% assert_200_req("http://www.google.co.uk", "", get),
+      assert_200_req("http://www.google.co.uk", "", get),
       assert_200_req("http://www.google.com", "", get),
       assert_200_req("http://www.google.com", "",options),
       assert_200_req("https://mail.google.com", "",get),
