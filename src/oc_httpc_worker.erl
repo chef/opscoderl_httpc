@@ -35,9 +35,15 @@
 
 -define(SERVER, ?MODULE).
 
-%% max_connection_duration is in ms
--record(state, {ibrowse_options = [], root_url, ibrowse_pid, current_connection_requests = 0,
-                max_connection_requests, max_connection_duration, born_on_time}).
+
+-record(state, {ibrowse_options = [],
+                root_url,
+                ibrowse_pid,
+                current_connection_requests = 0,
+                max_connection_requests,
+                max_connection_duration, %% value in ms
+                retry_on_conn_closed,
+                born_on_time}).
 
 -include_lib("ibrowse/include/ibrowse.hrl").
 
@@ -70,20 +76,33 @@ multi_request(Pid, Fun, Timeout) ->
 %%%===================================================================
 init([RootUrl, IbrowseOptions, Config]) ->
     process_flag(trap_exit, true),
+    RetryOnConnClosed = proplists:get_value(retry_on_conn_closed, Config, false),
     MaxRequests = proplists:get_value(max_connection_request_limit, Config, 100),
     MaxConnectionDuration = oc_time:convert_units(proplists:get_value(max_connection_duration, Config, {1, min}), ms),
     #url{host = Host, port = Port} = create_ibrowse_url(RootUrl),
     ibrowse:add_config([{ignored, ignored}, {dest, Host, Port, 1, 1, IbrowseOptions}]),
     {ok, #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = undefined,
+                retry_on_conn_closed = RetryOnConnClosed,
                 max_connection_requests = MaxRequests,
                 max_connection_duration = MaxConnectionDuration}}.
 
 handle_call(Request, From, State = #state{ibrowse_pid = undefined}) ->
     handle_call(Request, From, make_http_client_pid(State));
-handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions}) ->
+handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #state{root_url = RootUrl,
+                                                                                   ibrowse_options = IbrowseOptions,
+                                                                                   retry_on_conn_closed = RetryOnConnClosed}) ->
     NewState = refresh_connection_process(State),
-    Result = ibrowse:send_req_direct(NewState#state.ibrowse_pid, combine(RootUrl, Path), Headers, Method, Body, IbrowseOptions, Timeout),
-    {reply, Result, NewState};
+    ReqUrl = combine(RootUrl, Path),
+    Result = ibrowse:send_req_direct(NewState#state.ibrowse_pid, ReqUrl, Headers, Method, Body, IbrowseOptions, Timeout),
+    case {Result, RetryOnConnClosed} of
+        {{error, sel_conn_closed}, true} ->
+            lager:info("oc_httpc_worker: attempted request on closed connection (pid = ~p); opening new connection and retrying", [NewState#state.ibrowse_pid]),
+            NewState2 = reset_http_client_pid(State),
+            RetryResult = ibrowse:send_req_direct(NewState2#state.ibrowse_pid, ReqUrl, Headers, Method, Body, IbrowseOptions, Timeout),
+            {reply, RetryResult, NewState2};
+        _ ->
+            {reply, Result, NewState}
+    end;
 
 handle_call(_Request, _From, State) ->
     Reply = ok,
@@ -133,30 +152,32 @@ enforce_no_leading_slash(S) ->
 combine(Root, Path) ->
     enforce_trailing_slash(Root) ++ enforce_no_leading_slash(Path).
 
-make_http_client_pid(State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions}) ->
-    Url = create_ibrowse_url(RootUrl),
-    {ok, Pid} = ibrowse_http_client:start_link({undefined, Url, create_ssl_options(Url, IbrowseOptions)}),
-    State#state{ibrowse_pid = Pid, born_on_time = os:timestamp(), current_connection_requests = 0}.
-
 refresh_connection_process(State = #state{current_connection_requests = CurrentConnectionRequests,
                                           max_connection_requests = MaxConnectionRequests})
   when CurrentConnectionRequests >= MaxConnectionRequests  ->
-    UpdatedState = clear_previous_connection(State),
-    make_http_client_pid(UpdatedState);
+    reset_http_client_pid(State);
 refresh_connection_process(State = #state{born_on_time = BornOnTime,
                                           max_connection_duration = MaxConnectionDuration,
                                           current_connection_requests = CurrentConnectionRequests}) ->
     Duration = (timer:now_diff(os:timestamp(), BornOnTime)/1000),
     case Duration >= MaxConnectionDuration of
         true ->
-            UpdatedState = clear_previous_connection(State),
-            make_http_client_pid(UpdatedState);
+            reset_http_client_pid(State);
         false ->
             State#state{current_connection_requests = CurrentConnectionRequests + 1}
      end.
+
+reset_http_client_pid(State) ->
+    clear_previous_connection(State),
+    make_http_client_pid(State).
 
 clear_previous_connection(State = #state{ibrowse_pid = undefined}) ->
     State;
 clear_previous_connection(State = #state{ibrowse_pid = Pid}) ->
     ibrowse_http_client:stop(Pid),
     State.
+
+make_http_client_pid(State = #state{root_url = RootUrl, ibrowse_options = IbrowseOptions}) ->
+    Url = create_ibrowse_url(RootUrl),
+    {ok, Pid} = ibrowse_http_client:start_link({undefined, Url, create_ssl_options(Url, IbrowseOptions)}),
+    State#state{ibrowse_pid = Pid, born_on_time = os:timestamp(), current_connection_requests = 0}.
