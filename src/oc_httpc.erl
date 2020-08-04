@@ -59,6 +59,8 @@ request(PoolName, Endpoint, Headers, Method, Body) ->
 -spec request(atom(), string(), headerList(), method(), body(), timeout()) ->
                      response().
 request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
+io:format("~n~noc_httpc:request/6"),
+io:format("~nPoolName: ~p~nEndpoint: ~p~nHeaders: ~p~nMethod: ~p~nBody: ~p~nTimeout: ~p", [PoolName, Endpoint, Headers, Method, Body, Timeout]),
     take_and_execute(PoolName, fun(Pid) ->
                    oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, Timeout)
                end).
@@ -112,6 +114,8 @@ update_ibrowse_options(Options, Config) ->
             UpdatedOptions]
     end.
 take_and_execute(PoolName, Fun) ->
+io:format("~noc_httpc:take_and_execute/2"),
+io:format("~nPoolName: ~p~nFun: ~p", [PoolName, Fun]),
     case pooler:take_member(PoolName, get_pooler_timeout()) of
         error_no_members ->
             {error, no_members};
