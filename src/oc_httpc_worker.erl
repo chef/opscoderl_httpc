@@ -26,6 +26,7 @@
 -export([
          start_link/3,
          request/6,
+         verify_ca/3,
          multi_request/3
         ]).
 
@@ -80,11 +81,50 @@ init([RootUrl, IbrowseOptions, Config]) ->
     MaxRequests = proplists:get_value(max_connection_request_limit, Config, 100),
     MaxConnectionDuration = oc_time:convert_units(proplists:get_value(max_connection_duration, Config, {1, min}), ms),
     #url{host = Host, port = Port} = create_ibrowse_url(RootUrl),
-    ibrowse:add_config([{ignored, ignored}, {dest, Host, Port, 1, 1, IbrowseOptions}]),
-    {ok, #state{root_url = RootUrl, ibrowse_options = IbrowseOptions, ibrowse_pid = undefined,
+    IbrowseOptions1 = handle_custom_ssl_options(IbrowseOptions),
+    ibrowse:add_config([{ignored, ignored}, {dest, Host, Port, 1, 1, IbrowseOptions1}]),
+    {ok, #state{root_url = RootUrl, ibrowse_options = IbrowseOptions1, ibrowse_pid = undefined,
                 retry_on_conn_closed = RetryOnConnClosed,
                 max_connection_requests = MaxRequests,
                 max_connection_duration = MaxConnectionDuration}}.
+
+%%% handle_custom_ssl_options currently implements a custom verify mode, `verify_ca` which
+%%% ignores hostname mismatches, restoring the behavior of earlier Erlang versions. This is
+%%% useful for OTP 19-21 where verify_peer now verifies the hostname but does so naively
+%%% without additional configuration. This additional configuration is hard to provide
+%%% via a configuration file before OTP 22.
+%%%
+%%% This is not a stable API and will be removed when we upgrade our ecosystem to Erlang 22.
+handle_custom_ssl_options(Options) ->
+    case proplists:get_value(ssl_options, Options) of
+        undefined ->
+            Options;
+        SslOpts ->
+            case proplists:get_value(verify, SslOpts) of
+                verify_ca ->
+                    SslOptsNoVerify = proplists:delete(verify, SslOpts),
+                    SslNewOpts = [{verify, verify_peer}, {verify_fun, {fun oc_httpc_worker:verify_ca/3, []}} | SslOptsNoVerify],
+                    lists:keyreplace(ssl_options, 1, Options, {ssl_options, SslNewOpts});
+                _ ->
+                    Options
+            end
+    end.
+
+verify_ca(_Cert, Event, UserState) ->
+    case Event of
+        {bad_cert, hostname_check_failed} ->
+            {valid, UserState};
+        {bad_cert, _} ->
+            {fail, Event};
+        {extension, _} ->
+            {unknown, UserState};
+        valid ->
+            {valid, UserState};
+        valid_peer ->
+            {valid, UserState}
+    end.
+
+
 
 handle_call(Request, From, State = #state{ibrowse_pid = undefined}) ->
     handle_call(Request, From, make_http_client_pid(State));
