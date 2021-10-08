@@ -26,7 +26,8 @@
          request/6,
          multi_request/3,
          add_pool/2,
-         delete_pool/1
+         delete_pool/1,
+         get_authz_pool_info/0
         ]).
 
 %Type exports
@@ -143,3 +144,7 @@ get_pooler_timeout() ->
         {ok, Other} ->
             exit({invalid_pooler_timeout, Other})
     end.
+
+get_authz_pool_info() ->
+    [erlang:process_info(X) || 
+        {_,X,_,_} <- supervisor:which_children(erlang:whereis(pooler_oc_chef_authz_http_member_sup))].

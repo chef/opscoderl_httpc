@@ -133,7 +133,9 @@ handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #sta
                                                                                    retry_on_conn_closed = RetryOnConnClosed}) ->
     NewState = refresh_connection_process(State),
     ReqUrl = combine(RootUrl, Path),
+    lager:info("Devlog - oc_httpc_worker: before request attempt - request path ~p ", [ReqUrl]),
     Result = ibrowse:send_req_direct(NewState#state.ibrowse_pid, ReqUrl, Headers, Method, Body, IbrowseOptions, Timeout),
+    lager:info("Devlog - oc_httpc_worker: attempted request - request path ~p - result - ~p", [ReqUrl, Result]),
     case {Result, RetryOnConnClosed} of
         {{error, sel_conn_closed}, true} ->
             lager:info("oc_httpc_worker: attempted request on closed connection (pid = ~p); opening new connection and retrying", [NewState#state.ibrowse_pid]),
@@ -154,6 +156,9 @@ handle_cast(_Msg, State) ->
 handle_info({'EXIT', Pid, normal}, State = #state{ibrowse_pid = Pid}) ->
     {noreply, make_http_client_pid(State)};
 handle_info({'EXIT', Pid, _Reason}, State = #state{ibrowse_pid=Cur}) when Pid /= Cur ->
+    {noreply, State};
+handle_info(Message, State) ->
+    lager:info("Devlog - oc_httpc_worker: handle info - caught message ~p", [Message]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
