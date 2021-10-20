@@ -61,13 +61,13 @@ request(Pid, Path, Headers, Method, Body, Timeout) when is_atom(Method) ->
             Result
     catch
         exit:{timeout, _} ->
-            io:format("Devlog - oc_httpc_worker: request: l64 - current process status- ~p ", [erlang:is_process_alive(Pid)]),
-            io:format("Devlog - oc_httpc_worker: request: l65 - current process queue length & memory - ~p ", [erlang:process_info(Pid,[message_queue_len,memory])]),
+            %io:format("Devlog - oc_httpc_worker: request: l64 - current process status- ~p ", [erlang:is_process_alive(Pid)]),
+            %io:format("Devlog - oc_httpc_worker: request: l65 - current process queue length & memory - ~p ", [erlang:process_info(Pid,[message_queue_len,memory])]),
             io:format("Devlog - oc_httpc_worker: request: l66 - timedout ~p ", [{Pid, Path, Headers, Method, Body, Timeout}]),
             {error, req_timedout};
         Other ->
-            io:format("Devlog - oc_httpc_worker: request: l69 - current process status- ~p ", [erlang:is_process_alive(Pid)]),
-            io:format("Devlog - oc_httpc_worker: request: l70 - current process queue length & memory - ~p ", [erlang:process_info(Pid,[message_queue_len,memory])]),
+            %io:format("Devlog - oc_httpc_worker: request: l69 - current process status- ~p ", [erlang:is_process_alive(Pid)]),
+            %io:format("Devlog - oc_httpc_worker: request: l70 - current process queue length & memory - ~p ", [erlang:process_info(Pid,[message_queue_len,memory])]),
             io:format("Devlog - oc_httpc_worker: request: l71 - timedout ~p ", [{Pid, Path, Headers, Method, Body, Timeout}]),
             throw(Other)
     end.
@@ -141,7 +141,7 @@ handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #sta
     ReqUrl = combine(RootUrl, Path),
     %lager:info("Devlog - oc_httpc_worker: before request attempt - request path ~p ", [ReqUrl]),
     Result = ibrowse:send_req_direct(NewState#state.ibrowse_pid, ReqUrl, Headers, Method, Body, IbrowseOptions, Timeout),
-    %lager:info("Devlog - oc_httpc_worker: attempted request - request path ~p - result - ~p", [ReqUrl, Result]),
+    lager:info("Devlog - oc_httpc_worker: attempted request - request path ~p - result - ~p", [ReqUrl, Result]),
     case {Result, RetryOnConnClosed} of
         {{error, sel_conn_closed}, true} ->
             lager:info("oc_httpc_worker: attempted request on closed connection (pid = ~p); opening new connection and retrying", [NewState#state.ibrowse_pid]),

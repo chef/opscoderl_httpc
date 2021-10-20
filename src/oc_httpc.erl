@@ -59,9 +59,9 @@ request(PoolName, Endpoint, Headers, Method, Body) ->
 %% the root url, the headers, the method, the body and the timeout.
 -spec request(atom(), string(), headerList(), method(), body(), timeout()) ->
                      response().
-request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
+request(PoolName, Endpoint, Headers, Method, Body, _Timeout) ->
     take_and_execute(PoolName, fun(Pid) ->
-                   oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, Timeout)
+                   oc_httpc_worker:request(Pid, Endpoint, Headers, Method, Body, ?DEFAULT_SINGLE_REQUEST_TIMEOUT)
                end).
 
 %% @doc Sets up a multi_request in named pool.  The fun passed in a single arity fun that
@@ -71,9 +71,9 @@ request(PoolName, Endpoint, Headers, Method, Body, Timeout) ->
 %% invocation.
 -spec multi_request(atom(), fun(), non_neg_integer()) ->
                      any().
-multi_request(PoolName, Fun, Timeout) ->
+multi_request(PoolName, Fun, _Timeout) ->
     take_and_execute(PoolName, fun(Pid) ->
-                   oc_httpc_worker:multi_request(Pid, Fun, Timeout)
+                   oc_httpc_worker:multi_request(Pid, Fun, ?DEFAULT_MULTI_REQUEST_TIMEOUT)
                end).
 
 %% @doc Creates a pool with pool_name, which is an atom.  The config must have the following
