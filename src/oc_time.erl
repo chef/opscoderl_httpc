@@ -27,5 +27,9 @@
 convert_units({Val, SourceUnit}, TargetUnit) ->
     Val * to_ms(SourceUnit, TargetUnit).
 
-to_ms(_Unit1, _Unit2) ->
+to_ms(min, ms) ->
+    60000;
+to_ms(sec, ms) ->
+    1000;
+to_ms(Unit, Unit) ->
     1.
