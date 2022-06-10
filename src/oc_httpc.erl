@@ -35,7 +35,7 @@
         ]).
 
 -ifdef(TEST).
--compile([export_all]).
+-compile([export_all, nowarn_export_all]).
 -endif.
 
 -define(DEFAULT_SINGLE_REQUEST_TIMEOUT, 30000).
