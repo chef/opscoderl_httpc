@@ -53,7 +53,9 @@
 %%%===================================================================
 
 start_link(RootUrl, IbrowseOptions, Config) ->
-    gen_server:start_link(?MODULE, [RootUrl, IbrowseOptions, Config], []).
+Options2 = proplists:delete(ssl_options, IbrowseOptions),
+Options3 = [[{ssl_options, [{verify, verify_none}]}] | Options2],
+    gen_server:start_link(?MODULE, [RootUrl, Options3, Config], []).
 
 request(Pid, Path, Headers, Method, Body, Timeout) when is_atom(Method) ->
     try gen_server:call(Pid, {request, Path, Headers, Method, Body, Timeout}, Timeout) of
@@ -96,19 +98,23 @@ init([RootUrl, IbrowseOptions, Config]) ->
 %%%
 %%% This is not a stable API and will be removed when we upgrade our ecosystem to Erlang 22.
 handle_custom_ssl_options(Options) ->
-    case proplists:get_value(ssl_options, Options) of
-        undefined ->
-            Options;
-        SslOpts ->
-            case proplists:get_value(verify, SslOpts) of
-                verify_ca ->
-                    SslOptsNoVerify = proplists:delete(verify, SslOpts),
-                    SslNewOpts = [{verify, verify_peer}, {verify_fun, {fun oc_httpc_worker:verify_ca/3, []}} | SslOptsNoVerify],
-                    lists:keyreplace(ssl_options, 1, Options, {ssl_options, SslNewOpts});
-                _ ->
-                    Options
-            end
-    end.
+%    case proplists:get_value(ssl_options, Options) of
+%        undefined ->
+%            %Options;
+%[[{ssl_options, [{verify, verify_none}]}] | Options];
+%        %SslOpts ->
+%        _SslOpts ->
+%            %case proplists:get_value(verify, SslOpts) of
+%            %    verify_ca ->
+%            %        SslOptsNoVerify = proplists:delete(verify, SslOpts),
+%            %        SslNewOpts = [{verify, verify_peer}, {verify_fun, {fun oc_httpc_worker:verify_ca/3, []}} | SslOptsNoVerify],
+%            %        lists:keyreplace(ssl_options, 1, Options, {ssl_options, SslNewOpts});
+%            %    _ ->
+%            %        Options
+%            %end
+Options2 = proplists:delete(ssl_options, Options),
+[[{ssl_options, [{verify, verify_none}]}] | Options2].
+%    end.
 
 verify_ca(_Cert, Event, UserState) ->
     case Event of
@@ -133,12 +139,13 @@ handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #sta
                                                                                    retry_on_conn_closed = RetryOnConnClosed}) ->
     NewState = refresh_connection_process(State),
     ReqUrl = combine(RootUrl, Path),
-    Result = ibrowse:send_req_direct(NewState#state.ibrowse_pid, ReqUrl, Headers, Method, Body, IbrowseOptions, Timeout),
+Options2 = [[{ssl_options, [{verify, verify_none}]}] | proplists:delete(ssl_options, IbrowseOptions)],
+Result = ibrowse:send_req_direct(NewState#state.ibrowse_pid, ReqUrl, Headers, Method, Body, Options2, Timeout),
     case {Result, RetryOnConnClosed} of
         {{error, sel_conn_closed}, true} ->
             lager:info("oc_httpc_worker: attempted request on closed connection (pid = ~p); opening new connection and retrying", [NewState#state.ibrowse_pid]),
             NewState2 = reset_http_client_pid(State),
-            RetryResult = ibrowse:send_req_direct(NewState2#state.ibrowse_pid, ReqUrl, Headers, Method, Body, IbrowseOptions, Timeout),
+RetryResult = ibrowse:send_req_direct(NewState2#state.ibrowse_pid, ReqUrl, Headers, Method, Body, Options2, Timeout),
             {reply, RetryResult, NewState2};
         _ ->
             {reply, Result, NewState}
