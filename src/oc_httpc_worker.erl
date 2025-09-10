@@ -117,7 +117,7 @@ verify_ca(_Cert, Event, UserState) ->
         {bad_cert, _} ->
             {fail, Event};
         {extension, _} ->
-            {unknown, UserState};
+            {valid, UserState};
         valid ->
             {valid, UserState};
         valid_peer ->
