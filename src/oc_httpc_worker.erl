@@ -20,6 +20,8 @@
 
 -module(oc_httpc_worker).
 
+-include_lib("kernel/include/logger.hrl").
+
 -behaviour(gen_server).
 
 %% API
@@ -136,7 +138,7 @@ handle_call({request, Path, Headers, Method, Body, Timeout}, _From, State = #sta
     Result = ibrowse:send_req_direct(NewState#state.ibrowse_pid, ReqUrl, Headers, Method, Body, IbrowseOptions, Timeout),
     case {Result, RetryOnConnClosed} of
         {{error, sel_conn_closed}, true} ->
-            lager:info("oc_httpc_worker: attempted request on closed connection (pid = ~p); opening new connection and retrying", [NewState#state.ibrowse_pid]),
+            ?LOG_INFO("oc_httpc_worker: attempted request on closed connection (pid = ~p); opening new connection and retrying", [NewState#state.ibrowse_pid]),
             NewState2 = reset_http_client_pid(State),
             RetryResult = ibrowse:send_req_direct(NewState2#state.ibrowse_pid, ReqUrl, Headers, Method, Body, IbrowseOptions, Timeout),
             {reply, RetryResult, NewState2};
