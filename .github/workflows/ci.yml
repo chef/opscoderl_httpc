@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: OTP ${{ matrix.otp }}
+    runs-on: ubuntu-latest
+    container:
+      image: erlang:${{ matrix.otp }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 26 is what chef-server currently pins; 27 and 28 are tested so
+        # regressions show up before the pin moves.
+        otp: ['26', '27', '28']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile
+        run: rebar3 compile
+
+      - name: EUnit
+        # The network-dependent suites are opt-in via
+        # OPSCODERL_HTTPC_NETWORK_TESTS; see test/oc_httpc_tests.erl.
+        run: rebar3 eunit
+
+  dialyzer:
+    name: Dialyzer (informational)
+    runs-on: ubuntu-latest
+    container:
+      image: erlang:26
+    # Not a merge gate yet. Four warnings are outstanding on main:
+    #   - three from lager's parse transform expanding into lager:do_log/10,
+    #     lager:md/0 and lager_config:get/2, which dialyzer cannot resolve.
+    #     Removing lager clears all three.
+    #   - one for pooler:time_spec/0, which pooler uses internally but never
+    #     exports, so oc_httpc's spec refers to a type that is not public.
+    # Once both are resolved this should drop continue-on-error and gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dialyzer
+        run: rebar3 dialyzer
