@@ -5,3 +5,7 @@ rel/opscoderl_httpc
 .concrete/DEV_MODE
 deps.plt
 .eunit
+
+# rebar3
+_build/
+rebar.lock

@@ -22,7 +22,22 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+%% The suites below make live requests to a dozen third-party sites
+%% (google.com, sun.com, yaws.hyber.org, jigsaw.w3.org and others) and assert
+%% HTTP 200 from them. They are integration tests, not unit tests: they fail
+%% whenever one of those hosts is slow, moved or gone, which makes them useless
+%% as a merge gate. They stay available and are opted into by setting
+%% OPSCODERL_HTTPC_NETWORK_TESTS=1; CI runs the deterministic suites only.
+network_tests_enabled() ->
+    os:getenv("OPSCODERL_HTTPC_NETWORK_TESTS") =/= false.
+
 opscoderl_ibrowse_test_() ->
+    case network_tests_enabled() of
+        false -> [];
+        true -> opscoderl_ibrowse_tests()
+    end.
+
+opscoderl_ibrowse_tests() ->
     {setup,
      fun() ->
              application:ensure_all_started(ssl),
@@ -79,7 +94,13 @@ assert_200_req(RootUrl, Endpoint, Method, OptionsInput) ->
              ?assertMatch({ok, _, _, _}, Result)
      end}.
 
-multi_request_test() ->
+multi_request_test_() ->
+    case network_tests_enabled() of
+        false -> [];
+        true -> {timeout, 120, fun multi_request/0}
+    end.
+
+multi_request() ->
     RootUrl = "http://jigsaw.w3.org/",
     CallbackFun = fun(RequestFun) ->
                           Paths = ["HTTP/ChunkedScript",
@@ -108,7 +129,13 @@ multi_request_test() ->
     ?assertEqual(15, length(Results)),
     [?assertMatch({ok, _,_,_}, Result) || Result <- Results].
 
-process_leak_test() ->
+process_leak_test_() ->
+    case network_tests_enabled() of
+        false -> [];
+        true -> {timeout, 120, fun process_leak/0}
+    end.
+
+process_leak() ->
     Options = [{connect_timeout, 5000}],
     PoolConfig = [{root_url, "http://google.com"}, {init_count, 3}, {max_count, 3},
                   {ibrowse_options, Options}, {max_connection_requests, 1}],
@@ -151,7 +178,13 @@ request_error_test_() ->
     {foreach,
      fun() ->
              error_logger:tty(false),
+             %% pooler has to be running before add_pool/2. This used to be
+             %% started by opscoderl_ibrowse_test_'s setup, so these cases only
+             %% passed when that suite ran first; they now stand alone.
+             {ok, _} = application:ensure_all_started(pooler),
              application:start(ibrowse),
+             %% no request reaches this host: ibrowse is mecked below, so the
+             %% URL is only pool configuration.
              RootUrl = "http://jigsaw.w3.org/",
              Options = [{connect_timeout, 5000}],
              PoolConfig = [{root_url, RootUrl}, {init_count, 50}, {max_count, 250},
