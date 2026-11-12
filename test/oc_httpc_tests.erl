@@ -74,7 +74,9 @@ assert_200_req(RootUrl, Endpoint, Method, OptionsInput) ->
              PoolConfig = [{root_url, RootUrl}, {init_count, 50}, {max_count, 250},
                            {ibrowse_options, Options}],
              oc_httpc:add_pool(list_to_atom(RootUrl), PoolConfig),
-             Result = (catch oc_httpc:request(list_to_atom(RootUrl), Endpoint, [], Method, [], 60000)),
+             Result = try oc_httpc:request(list_to_atom(RootUrl), Endpoint, [], Method, [], 60000)
+                      catch Class:Reason -> {Class, Reason}
+                      end,
              oc_httpc:delete_pool(list_to_atom(RootUrl)),
              ?assertMatch({ok, _, _, _}, Result)
      end}.
@@ -103,7 +105,9 @@ multi_request_test() ->
     PoolConfig = [{root_url, RootUrl}, {init_count, 50}, {max_count, 250},
                   {ibrowse_options, Options}],
     oc_httpc:add_pool(list_to_atom(RootUrl), PoolConfig),
-    Results = (catch oc_httpc:multi_request(list_to_atom(RootUrl), CallbackFun , 60000)),
+    Results = try oc_httpc:multi_request(list_to_atom(RootUrl), CallbackFun , 60000)
+              catch Class:Reason -> {Class, Reason}
+              end,
     oc_httpc:delete_pool(list_to_atom(RootUrl)),
     ?assertEqual(15, length(Results)),
     [?assertMatch({ok, _,_,_}, Result) || Result <- Results].
@@ -189,9 +193,7 @@ request_error_test_() ->
              meck:expect(ibrowse, send_req_direct, fun(_,_,_,_,_,_,_) ->
                                                            erlang:error(other_error)
                                                                end),
-             Result = (catch(oc_httpc:request(foo, "/", [], get, [], Timeout))),
-
-             ?assertMatch({'EXIT', {{other_error,_}, _}}, Result)
+             ?assertExit({{other_error,_}, _}, oc_httpc:request(foo, "/", [], get, [], Timeout))
                             end}]
     }.
 
